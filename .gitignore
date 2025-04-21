@@ -3,6 +3,9 @@ venv/
 env/
 ENV/
 
+
+config/tokens.json
+
 # Python cache files
 __pycache__/
 *.py[cod]

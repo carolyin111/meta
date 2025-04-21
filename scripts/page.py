@@ -10,6 +10,10 @@ from facebook_business.adobjects.page import Page
 from facebook_business.adobjects.user import User
 from facebook_business.adobjects.iguserforigonlyapi import IGUserForIGOnlyAPI
 
+# 添加src目錄到路徑
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.token_manager import TokenManager
+
 # 載入環境變數
 from dotenv import load_dotenv
 # 嘗試從當前目錄和config目錄載入.env文件
@@ -19,60 +23,26 @@ load_dotenv('config/.env')
 # 檢查環境變數
 my_app_id = os.getenv('APP_ID')
 my_app_secret = os.getenv('APP_SECRET')
-user_access_token = os.getenv('ACCESS_TOKEN')  # 用戶的access token
 my_page_id = os.getenv('PAGE_ID')
-page_access_token = os.getenv('PAGE_ACCESS_TOKEN')
 
-# 檢查環境變數是否成功載入
-if not my_app_id or not my_app_secret or not user_access_token:
-    print("錯誤: 關鍵環境變數未正確載入")
-    print(f"APP_ID: {my_app_id}")
-    print(f"APP_SECRET: {'已設置' if my_app_secret else '未設置'}")
-    print(f"ACCESS_TOKEN: {'已設置' if user_access_token else '未設置'}")
-    sys.exit(1)
-
-# 首先用用戶token初始化API，以獲取頁面token
-print("初始化 API 並嘗試獲取新的頁面 token...")
-FacebookAdsApi.init(my_app_id, my_app_secret, user_access_token)
-
-# 嘗試獲取頁面的 access token
-try:
-    print("獲取頁面 access_token...")
-    me = User(fbid='me')
-    pages = me.get_accounts(fields=['access_token', 'name', 'id'])
-    
-    # 顯示所有可用的頁面
-    print("\n可用的頁面:")
-    for page in pages:
-        print(f"ID: {page['id']}, 名稱: {page['name']}")
-        if page['id'] == my_page_id:
-            page_access_token = page['access_token']
-            print(f"找到指定頁面! 獲取新的 access_token")
-    
-    if not page_access_token and my_page_id:
-        print(f"找不到ID為 {my_page_id} 的頁面，請確認頁面ID是否正確")
-        if pages:
-            first_page = pages[0]
-            print(f"使用第一個可用頁面: {first_page['name']} (ID: {first_page['id']})")
-            my_page_id = first_page['id']
-            page_access_token = first_page['access_token']
-    
-    # 使用新獲取的頁面token重新初始化API
-    if page_access_token:
-        print(f"使用新的頁面token重新初始化API...")
-        FacebookAdsApi.init(my_app_id, my_app_secret, page_access_token)
-    else:
-        print("無法獲取任何頁面的 access_token")
-        sys.exit(1)
-        
-except Exception as e:
-    print(f"獲取頁面token時出錯: {e}")
-    sys.exit(1)
-
-# 使用獲取到的頁面ID和token
-my_page = Page(my_page_id)
+# 初始化令牌管理器
+token_manager = TokenManager(app_id=my_app_id, app_secret=my_app_secret)
 
 try:
+    print("初始化 API 並獲取令牌...")
+    
+    # 獲取有效的頁面令牌(會自動刷新)
+    page_token = token_manager.get_valid_page_token(my_page_id)
+    
+    # 使用頁面token初始化API
+    FacebookAdsApi.init(my_app_id, my_app_secret, page_token)
+    
+    # 顯示令牌信息
+    token_manager.print_token_info()
+    
+    # 使用獲取到的頁面ID和token
+    my_page = Page(my_page_id)
+
     # 獲取頁面資訊
     page_info = my_page.api_get(fields=['id', 'name', 'category'])
     print('---------page info---------')
